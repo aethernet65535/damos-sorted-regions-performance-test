@@ -1,0 +1,14 @@
+--- Before ---
+Regions tried:   0
+Bytes tried:     0
+Regions applied: 0
+Bytes applied:   0
+Quota exceeded:  0
+
+--- After ---
+Regions tried:   1819
+Bytes tried:     14746624000
+Regions applied: 1819
+Bytes applied:   14746624000
+Quota exceeded:  1795
+

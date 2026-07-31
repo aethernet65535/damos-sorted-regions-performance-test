@@ -8,7 +8,7 @@ MIN_SEC=60
 HOUR_SEC=$((60 * MIN_SEC))
 
 DIR_NAME="pageout-vanilla"
-DATE="2026-07-30-0001"
+DATE="2026-07-31-0001"
 REPORT_DIR="./report/${DIR_NAME}-${DATE}"
 
 TEST_SECS=$((1 * HOUR_SEC))
@@ -19,8 +19,8 @@ MASIM_PATH="../external/masim"
 
 make -C $MASIM_PATH
 
-MASIM_BIN="../external/masim/masim"
-MASIM_CFG="../external/masim/configs/sliding-window.cfg"
+MASIM_BIN="./masim"
+MASIM_CFG="configs/sliding-window.cfg"
 
 # --- Root Privileges Check ---
 if [ "$(id -u)" -ne 0 ]; then
@@ -47,7 +47,9 @@ sar -B      $INTERVAL_SECS $SAMPLING_TIMES >> "$REPORT_DIR/fault.txt" &
 
 # --- Test Execution ---
 echo "Starting test workload..."
-"$MASIM_BIN" "$MASIM_CFG"
+pushd $MASIM_PATH
+$MASIM_BIN $MASIM_CFG
+popd
 
 # --- Stop Monitoring ---
 pkill -INT -x sar

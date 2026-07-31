@@ -46,9 +46,9 @@ echo 0 > $SCHEME/quotas/weights/sz_permil
 echo 0 > $SCHEME/quotas/weights/nr_accesses_permil
 echo 1000 > $SCHEME/quotas/weights/age_permil
 
-# Watermarks: only activate when free memory is between 20% and 50%
+# Watermarks: only activate when free memory is lower than 50%/40%.
 echo free_mem_rate > $SCHEME/watermarks/metric
-echo 5000000       > $SCHEME/watermarks/interval_us   # check every 5s
+echo 5000000       > $SCHEME/watermarks/interval_us    # check every 5s
 echo 500           > $SCHEME/watermarks/high           # deactivate above 50%
 echo 400           > $SCHEME/watermarks/mid            # activate at 40%
-echo 200           > $SCHEME/watermarks/low            # deactivate below 20%
+echo 0             > $SCHEME/watermarks/low            # do not deactivate when memory pressure
