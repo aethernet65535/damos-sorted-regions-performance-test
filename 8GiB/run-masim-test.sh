@@ -27,9 +27,9 @@ INTERVAL_SECS=5
 SAMPLING_TIMES=$((TEST_SECS / INTERVAL_SECS))
 
 # masim configuration
-MASIM_BIN="../masim-copy/masim"
-MASIM_CONFIG="../masim-copy/configs/coldhot-8gib.cfg"
-MASIM_GENERATOR="../masim-copy/coldhot_test_config.py"
+MASIM_BIN="./masim-copy/masim"
+MASIM_CONFIG="./masim-copy/configs/coldhot-8gib.cfg"
+MASIM_GENERATOR="./masim-copy/coldhot_test_config.py"
 MASIM_REPEAT=1
 GENERATE_CONFIG=0
 
