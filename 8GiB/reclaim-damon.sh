@@ -8,7 +8,7 @@ MIN_SEC=60
 HOUR_SEC=$((60 * MIN_SEC))
 
 DIR_NAME="pageout-damon"
-DATE="2026-08-01-0001"
+DATE="2026-08-02-0001"
 REPORT_DIR="./report/${DIR_NAME}-${DATE}"
 
 TEST_SECS=$((1 * HOUR_SEC))
@@ -18,7 +18,7 @@ SAMPLING_TIMES=$((TEST_SECS / INTERVAL_SECS))
 ADMIN="/sys/kernel/mm/damon/admin"
 STATS="$ADMIN/kdamonds/0/contexts/0/schemes/0/stats"
 
-MASIM_PATH="../external/masim"
+MASIM_PATH="../masim"
 
 make -C $MASIM_PATH
 
