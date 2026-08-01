@@ -1,14 +1,63 @@
-From 7a66a092c2f0abbaa54dec5bb0ec5d6356be3709 Mon Sep 17 00:00:00 2001
+From f7519059b58e7fa4372bd3a30b8d42085e5e4c9a Mon Sep 17 00:00:00 2001
 From: Liew Rui Yan <aethernet65535@gmail.com>
-Date: Thu, 30 Jul 2026 19:20:56 +0800
-Subject: [RFC PATCH] mm/damon: introduce SCORE_DESC sorted regions list for DAMOS
+Date: Sat, 1 Aug 2026 14:02:45 +0800
+Subject: [PATCH] mm/damon: introduce damos_sort_type for re-ordering regions
+ list
+
+Problem
+=======
+
+A DAMOS scheme filters its target regions using an access pattern, which
+is constructed with the size, the access frequency (nr_accesses), and
+the age of the regions. The age here means how long the current access
+pattern of a region has been maintained.
+
+For the pageout action, the age.min of the access pattern effectively
+acts as the minimum amount of time that the target regions must have been
+unused.
+
+The definition of cold memory highly depends on the devices and
+workloads, and thus setting a proper default age.min (e.g., min_age of
+DAMON_RECLAIM) is both important and nearly impossible to make suitable
+for all devices and workloads.
+
+Solution
+========
+
+Add a per-scheme sysfs attribute, schemes/<N>/sort_type, whose default
+value is 'none'. A scheme can set it to 'score_desc', which makes the
+scheme to collect the target regions and apply its action in descending
+order of the regions' scores, as calculated by the ops.get_scheme_score()
+callback, during the application. For a pageout scheme, the callback
+returns the coldness score of each region.
+
+Instead of modifying the region list, DAMON copies the target valid
+regions into a temporary array, sorts the array in descending order of
+the regions' scores, and applies the action in the sorted order.
+
+With this, the scheme gives absolute priority to the highest-scored
+region. For example, a pageout scheme with 'score_desc' reclaims the
+coldest region of the target first. Users can thus keep the age.min
+relatively small and let the score ordering do the precise
+prioritization.
+
+Note that regions are applied in the score order, not the address order.
+Therefore, the address-based quota charge resume mechanism is not
+available for such schemes. Instead, the quota is spent on the
+highest-scored regions of each charge window. Applying an action
+resets the age of the applied regions (except for 'stat' action), so
+those regions are naturally excluded from the next window if the scheme
+has a non-zero age.min. Also, when a region is split for the quota, the
+age of the split-out part is preserved, and thus the highest-scored
+region is continuously applied until it is fully reclaimed, even when it
+is larger than the remaining quota of a single window.
 
 Signed-off-by: Liew Rui Yan <aethernet65535@gmail.com>
 ---
  include/linux/damon.h    |  6 +++
- mm/damon/core.c          | 89 ++++++++++++++++++++++++++++++++++++++++
- mm/damon/sysfs-schemes.c | 57 +++++++++++++++++++++++++
- 3 files changed, 152 insertions(+)
+ mm/damon/core.c          | 95 +++++++++++++++++++++++++++++++++++++++-
+ mm/damon/sysfs-schemes.c | 57 ++++++++++++++++++++++++
+ 3 files changed, 157 insertions(+), 1 deletion(-)
 
 diff --git a/include/linux/damon.h b/include/linux/damon.h
 index 0c8b7ddef9ab..88a3f9f4a4ca 100644
@@ -35,7 +84,7 @@ index 0c8b7ddef9ab..88a3f9f4a4ca 100644
  	/*
  	 * number of sample intervals that should be passed before applying
 diff --git a/mm/damon/core.c b/mm/damon/core.c
-index 644daf5a1656..a52cdf05e0e5 100644
+index 644daf5a1656..774a39378312 100644
 --- a/mm/damon/core.c
 +++ b/mm/damon/core.c
 @@ -15,6 +15,7 @@
@@ -62,21 +111,34 @@ index 644daf5a1656..a52cdf05e0e5 100644
  	return 0;
  }
  
-@@ -2654,6 +2657,9 @@ static void damon_do_apply_schemes(struct damon_ctx *c,
- 		if (!s->wmarks.activated)
- 			continue;
+@@ -2627,7 +2630,12 @@ static void damos_apply_scheme(struct damon_ctx *c, struct damon_target *t,
+ 		quota->total_charged_ns += timespec64_to_ns(&end) -
+ 			timespec64_to_ns(&begin);
+ 		damos_charge_quota(quota, sz, sz_applied);
+-		if (damos_quota_is_full(quota, c->min_region_sz)) {
++		/*
++		 * Since it can no longer be guaranteed that the re-ordered
++		 * Region List is sorted by address. So, no record.
++		 */
++		if (s->sort_type == DAMOS_SORT_NONE &&
++			damos_quota_is_full(quota, c->min_region_sz)) {
+ 			quota->charge_target_from = t;
+ 			quota->charge_addr_from = r->ar.end;
+ 		}
+@@ -2648,6 +2656,9 @@ static void damon_do_apply_schemes(struct damon_ctx *c,
+ 	damon_for_each_scheme(s, c) {
+ 		struct damos_quota *quota = &s->quota;
  
 +		if (s->sort_type != DAMOS_SORT_NONE)
 +			continue;
 +
- 		/* Check the quota */
- 		if (damos_quota_is_full(quota, c->min_region_sz))
+ 		if (time_before(c->passed_sample_intervals, s->next_apply_sis))
  			continue;
-@@ -2691,10 +2697,93 @@ static void damon_do_apply_schemes(struct damon_ctx *c,
-  * is executed.  The decrease will not violate min_nr_regions though, since it
-  * keeps @max_region_sz.
-  */
-+
+ 
+@@ -2673,6 +2684,77 @@ static void damon_do_apply_schemes(struct damon_ctx *c,
+ 	}
+ }
+ 
 +struct damos_sort_priv {
 +	struct damon_ctx *c;
 +	struct damos *s;
@@ -101,9 +163,12 @@ index 644daf5a1656..a52cdf05e0e5 100644
 +	struct damon_region *r;
 +	struct damos_quota *quota = &s->quota;
 +	struct damos_sort_priv priv = { .c = c, .s = s };
-+	int nr = 0, i;
++	unsigned long nr = 0, i = 0;
 +
 +	if (!c->ops.get_scheme_score)
++		return;
++	/* Avoid unnecessary kvmalloc_array() */
++	if (damos_quota_is_full(quota, c->min_region_sz))
 +		return;
 +
 +	damon_for_each_region(r, t) {
@@ -113,11 +178,10 @@ index 644daf5a1656..a52cdf05e0e5 100644
 +	if (nr == 0)
 +		return;
 +
-+	arr = kmalloc_array(nr, sizeof(*arr), GFP_KERNEL);
++	arr = kvmalloc_array(nr, sizeof(*arr), GFP_KERNEL);
 +	if (!arr)
 +		return;
 +
-+	i = 0;
 +	damon_for_each_region(r, t) {
 +		if (__damos_valid_target(r, s, c))
 +			arr[i++] = r;
@@ -128,11 +192,9 @@ index 644daf5a1656..a52cdf05e0e5 100644
 +	for (i = 0; i < nr; i++) {
 +		r = arr[i];
 +
++		/* Check the quota */
 +		if (damos_quota_is_full(quota, c->min_region_sz))
 +			break;
-+
-+		if (damos_skip_charged_region(t, r, s, c->min_region_sz))
-+			continue;
 +
 +		if (s->max_nr_snapshots &&
 +				s->max_nr_snapshots <= s->stat.nr_snapshots)
@@ -141,14 +203,17 @@ index 644daf5a1656..a52cdf05e0e5 100644
 +		if (damos_valid_target(c, r, s))
 +			damos_apply_scheme(c, t, r, s);
 +
-+		if (damon_is_last_region(r, t))
++		if (i == nr - 1)
 +			s->stat.nr_snapshots++;
 +	}
 +
-+	kfree(arr);
++	kvfree(arr);
 +}
 +
- static void damos_apply_target(struct damon_ctx *c, struct damon_target *t,
+ /*
+  * damos_apply_target() - Apply DAMOS schemes to a given target.
+  * @c:			monitoring context to apply its DAMOS schemes to..
+@@ -2695,6 +2777,17 @@ static void damos_apply_target(struct damon_ctx *c, struct damon_target *t,
  		unsigned long max_region_sz)
  {
  	struct damon_region *r;
@@ -157,9 +222,9 @@ index 644daf5a1656..a52cdf05e0e5 100644
 +	damon_for_each_scheme(s, c) {
 +		if (s->sort_type == DAMOS_SORT_NONE)
 +			continue;
-+		if (time_before(c->passed_sample_intervals, s->next_apply_sis))
-+			continue;
 +		if (!s->wmarks.activated)
++			continue;
++		if (time_before(c->passed_sample_intervals, s->next_apply_sis))
 +			continue;
 +		damos_apply_sorted_scheme(c, t, s);
 +	}

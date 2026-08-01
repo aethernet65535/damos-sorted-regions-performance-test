@@ -8,7 +8,7 @@ MIN_SEC=60
 HOUR_SEC=$((60 * MIN_SEC))
 
 DIR_NAME="pageout-vanilla"
-DATE="2026-07-31-0001"
+DATE="2026-08-01-0001"
 REPORT_DIR="./report/${DIR_NAME}-${DATE}"
 
 TEST_SECS=$((1 * HOUR_SEC))
@@ -33,6 +33,11 @@ pkill -x sar
 
 rm -rf "$REPORT_DIR"
 mkdir -p "$REPORT_DIR"
+
+modprobe zram
+echo 4096M > /sys/block/zram0/disksize
+mkswap /dev/zram0
+swapon /dev/zram0
 
 # --- Baseline Metrics (Before) ---
 grep "refault" /proc/vmstat >> "$REPORT_DIR/refault.txt"
