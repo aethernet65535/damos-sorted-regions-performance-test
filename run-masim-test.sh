@@ -205,6 +205,11 @@ if [ "$DRY_RUN" -ne 1 ]; then
     "$MASIM_BIN" "$MASIM_CONFIG" --repeat="$MASIM_REPEAT" --quiet &
     MASIM_PID=$!
     echo "  masim PID: $MASIM_PID"
+
+    if [ "$TEST_MODE" != "vanilla" ]; then
+        echo $MASIM_PID > $ADMIN/kdamonds/0/contexts/0/targets/0/pid_target
+        echo on > $ADMIN/kdamonds/0/state
+    fi
 else
     echo "  [DRY RUN] Would start masim with config: $MASIM_CONFIG"
     MASIM_PID=""

@@ -10,14 +10,14 @@ fi
 echo 1 > $ADMIN/kdamonds/nr_kdamonds
 echo 1 > $ADMIN/kdamonds/0/contexts/nr_contexts
 
-# Use the physical address space ops
-echo paddr > $ADMIN/kdamonds/0/contexts/0/operations
+# Use the vitrual address space ops
+echo vaddr > $ADMIN/kdamonds/0/contexts/0/operations
 
 # Tune monitoring intervals
 echo 5000   > $ADMIN/kdamonds/0/contexts/0/monitoring_attrs/intervals/sample_us
 echo 100000 > $ADMIN/kdamonds/0/contexts/0/monitoring_attrs/intervals/aggr_us
 
-# One target (paddr needs exactly one target; no pid_target needed)
+# One target
 echo 1 > $ADMIN/kdamonds/0/contexts/0/targets/nr_targets
 
 # Create one DAMOS scheme
@@ -52,5 +52,3 @@ echo 5000000       > $SCHEME/watermarks/interval_us    # check every 5s
 echo 500           > $SCHEME/watermarks/high           # deactivate above 50%
 echo 400           > $SCHEME/watermarks/mid            # activate at 40%
 echo 0             > $SCHEME/watermarks/low            # do not deactivate when memory pressure
-
-echo on > $ADMIN/kdamonds/0/state
