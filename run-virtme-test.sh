@@ -23,14 +23,14 @@
 #   4. Repeats for each test mode
 #
 # Results are saved in:
-#   <project_dir>/8GiB/report/masim-{vanilla,damon,damon-optimized}-<date>/
+#   <project_dir>/report/masim-{vanilla,damon,damon-optimized}-<date>/
 
 set -e
 
 # --- Configuration ---
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 KERNEL_DIR="/home/user/65535/workspace/oss/linux/kernel/linux_mainline"
-TEST_SCRIPT="$SCRIPT_DIR/8GiB/run-masim-test.sh"
+TEST_SCRIPT="$SCRIPT_DIR/run-masim-test.sh"
 MASIM_CONFIG=""
 GENERATE_CONFIG=0
 DRY_RUN=0
@@ -140,7 +140,7 @@ run_test() {
     log_info "Starting $mode_name test..."
 
     # Build the command to execute inside VM
-    local inner_cmd="cd $SCRIPT_DIR && bash 8GiB/run-masim-test.sh"
+    local inner_cmd="cd $SCRIPT_DIR && bash run-masim-test.sh"
 
     if [ "$GENERATE_CONFIG" -eq 1 ]; then
         inner_cmd="$inner_cmd -g"
@@ -235,14 +235,14 @@ else
 fi
 
 echo ""
-log_info "Results saved in: $SCRIPT_DIR/8GiB/report/"
-ls -1 "$SCRIPT_DIR/8GiB/report/" 2>/dev/null | grep "^masim-" | while read dir; do
+log_info "Results saved in: $SCRIPT_DIR/report/"
+ls -1 "$SCRIPT_DIR/report/" 2>/dev/null | grep "^masim-" | while read dir; do
     echo "  - $dir"
 done
 
 echo ""
 log_info "To analyze results, run:"
-echo "  python3 $SCRIPT_DIR/calc_p99.py $SCRIPT_DIR/8GiB/report/<result_dir>"
+echo "  python3 $SCRIPT_DIR/calc_p99.py $SCRIPT_DIR/report/<result_dir>"
 echo ""
 
 if [ "$DRY_RUN" -eq 1 ]; then

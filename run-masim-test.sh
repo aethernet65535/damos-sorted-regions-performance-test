@@ -32,7 +32,7 @@ SAMPLING_TIMES=$((TEST_SECS / INTERVAL_SECS))
 
 # masim configuration
 MASIM_BIN="./masim-copy/masim"
-MASIM_CONFIG="./masim-copy/configs/coldhot-8gib.cfg"
+MASIM_CONFIG="./masim-copy/configs/cloudnative-8gib.cfg"
 MASIM_GENERATOR=""
 MASIM_REPEAT=1
 GENERATE_CONFIG=0
