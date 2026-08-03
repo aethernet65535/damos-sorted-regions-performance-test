@@ -1,6 +1,14 @@
 #!/bin/bash
 ADMIN=/sys/kernel/mm/damon/admin
 
+# [!NOTE]
+# What No Set? (Common params)
+# ============================
+# - operations
+# - target_pid
+# - state
+# - sort_type
+
 if [ "$(id -u)" -ne 0 ]; then
   echo "please run as root"
   exit 1
@@ -9,9 +17,6 @@ fi
 # Create one kdamond with one context
 echo 1 > $ADMIN/kdamonds/nr_kdamonds
 echo 1 > $ADMIN/kdamonds/0/contexts/nr_contexts
-
-# Use the vitrual address space ops
-echo vaddr > $ADMIN/kdamonds/0/contexts/0/operations
 
 # Tune monitoring intervals
 echo 5000   > $ADMIN/kdamonds/0/contexts/0/monitoring_attrs/intervals/sample_us
@@ -46,9 +51,9 @@ echo 0 > $SCHEME/quotas/weights/sz_permil
 echo 0 > $SCHEME/quotas/weights/nr_accesses_permil
 echo 1000 > $SCHEME/quotas/weights/age_permil
 
-# Watermarks: only activate when free memory is lower than 50%/40%.
+# Watermarks: only activate when free memory is lower than 50% and higher than 20%
 echo free_mem_rate > $SCHEME/watermarks/metric
 echo 5000000       > $SCHEME/watermarks/interval_us    # check every 5s
 echo 500           > $SCHEME/watermarks/high           # deactivate above 50%
 echo 400           > $SCHEME/watermarks/mid            # activate at 40%
-echo 0             > $SCHEME/watermarks/low            # do not deactivate when memory pressure
+echo 200           > $SCHEME/watermarks/low            # deactivate below 20%
